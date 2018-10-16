@@ -1,2 +1,4 @@
 # ComputingSystemsProjects
-A memory allocator, a garbage collector, and a B-Tree. 
+A memory allocator and a B-Tree implementation. 
+
+
