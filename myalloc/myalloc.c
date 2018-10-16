@@ -242,8 +242,7 @@ void myfree(unsigned char *oldptr)
         int prevSpace = *prevFootptr;
         if (prevSpace > 0) /* if the previous block is also free, coalesce */
         {
-            node *prevHeadptr = (node *) (dataptr - prevSpace 
-                                                  - 2 * sizeof(int));
+            node *prevHeadptr = (node *) (dataptr - prevSpace - 2 * sizeof(int));
             coalesce(prevHeadptr, headptr);
             /*
              * reset the variables to refer to new, coalesced block before
