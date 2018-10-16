@@ -1,0 +1,39 @@
+a) 
+On an address that did not originate from myalloc, or
+an address in the middle of a myalloc block, if the address was not
+in the range of addresses in the memory pool, isValid would return 0. If the
+bit at the address was 0 (so the int at the address is positive), isValid would
+return 0. Finally, calling the int at the address x, if the int at
+the location (-x+4) bytes after the address is not the same as -x, then isValid
+would return 0. Thus, the only way an address not from myalloc or in the 
+middle of a myalloc block would work
+is if it was 1) in the memory pool, 2) stored a negative int, 3) and the int
+a specific number of bytes away is the same as the int stored there. Clearly
+this is highly unlikely, so in most cases, after isValid returns 0, the program
+would abort, printing an error message including the address. In
+the few, highly unlikely cases where isValid returned a 1, 
+the address would still be in the middle of the memory pool, so there would not
+be a seg fault. In addition, addNode would work normally, so what would
+end up happening is you would create a block in a random location, potentially
+inside or overlapping other blocks. This would potentially lead to data
+corruption of the other blocks. 
+On an address already freed, since the int at the address would be
+positive for sure, isValid would return 0, and the program would abort
+correctly.
+
+b) 
+Again, many of the abuses suggested would be caught by isValid (particularly
+the already freed case). To make a more robust allocator, in addition to
+the above checks, one could check more blocks on either side of a specified 
+block. Thus, if the tags on both ends of a block matched, the next step
+would be to check the header tag on the next block, and take the absolute 
+value of the int there to find the footer tag on the next block, and make sure
+that matches. If that checked out, one could then take the footer tag of the
+previous block, use the absolute value to find the header block, and make sure
+that it also matched the footer tag. Of course, in both of these cases, you
+would make sure you weren't moving past the start or end addresses of the
+memory pool to avoid seg faulting.
+In a real allocator, another thing to check would be data alignment. 
+Clearly, any returned address would be (depending on the data type), would be
+at an address divisible by 8 bytes (or a factor of 8 bytes).
+

@@ -1,0 +1,28 @@
+Max value CPUID accepts:  22 (0x16)
+Max value CPUID accepts for extended information:  2147483656 (0x80000008)
+
+Vendor string:  "GenuineIntel"
+Processor family ID:  6    Model:  14    Stepping ID:  9
+Brand index:  0    (unsupported)
+
+Instruction cache block size:  8 dwords (64 bytes)
+
+Number of cores in the package:  1
+Max addressable IDs for logical processors in the package:  0
+APIC:  yes
+x2APIC:  yes
+Initial APIC ID:  0
+Package supports multiple threads:  no
+
+Cache index 0:  type 1 (data cache), level 1, procIDs 1, totIDs 1
+    Block size 64B, partitions 1, associativity 8, sets 64
+    Cache size:  32768 bytes
+Cache index 1:  type 2 (instruction cache), level 1, procIDs 1, totIDs 1
+    Block size 64B, partitions 1, associativity 8, sets 64
+    Cache size:  32768 bytes
+Cache index 2:  type 3 (unified cache), level 2, procIDs 1, totIDs 1
+    Block size 64B, partitions 1, associativity 4, sets 1024
+    Cache size:  262144 bytes
+Cache index 3:  type 3 (unified cache), level 3, procIDs 1, totIDs 1
+    Block size 64B, partitions 1, associativity 16, sets 4096
+    Cache size:  4194304 bytes

@@ -1,0 +1,219 @@
+Multimap Caching Performance
+============================
+
+a)  Size of hardware cache lines:
+    Block size 64B.
+
+
+
+b)  Output of mmperf (Note that scale was set to 5):
+This program measures multimap read performance by doing the following, for
+various kinds of usage patterns:
+
+ * First, a large number of randomly generated (key, value) pairs are inserted
+   into an empty multimap.
+
+ * Next, more (key, value) pairs are randomly generated, and the multimap is
+   probed to see if each pair is in the map.  The amount of wall-clock time
+   taken for this step is measured and used to estimate the time-per-probe
+   of the map.
+
+ * Finally, the program prints out how many of the generated (key, value) pairs
+   were in the map.  This number should not change regardless of optimizations
+   to the data structure, because the same random seed is always used at the
+   start of the program.
+
+Testing multimap performance:  300000 pairs, 500000 probes, random keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498864 out of 500000 test-pairs were in the map (99.8%)
+Total wall-clock time:  6.09 seconds		μs per probe:  12.174 μs
+
+Testing multimap performance:  300000 pairs, 500000 probes, incrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498690 out of 500000 test-pairs were in the map (99.7%)
+Total wall-clock time:  5.05 seconds		μs per probe:  10.108 μs
+
+Testing multimap performance:  300000 pairs, 500000 probes, decrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498753 out of 500000 test-pairs were in the map (99.8%)
+Total wall-clock time:  4.98 seconds		μs per probe:  9.969 μs
+
+Testing multimap performance:  15000000 pairs, 500000 probes, random keys.
+Adding 15000000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+475505 out of 500000 test-pairs were in the map (95.1%)
+Total wall-clock time:  3.10 seconds		μs per probe:  6.191 μs
+
+Testing multimap performance:  100000 pairs, 25000 probes, incrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 25000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+502 out of 25000 test-pairs were in the map (2.0%)
+Total wall-clock time:  7.35 seconds		μs per probe:  293.974 μs
+
+Testing multimap performance:  100000 pairs, 25000 probes, decrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 25000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+545 out of 25000 test-pairs were in the map (2.2%)
+Total wall-clock time:  7.21 seconds		μs per probe:  288.527 μs
+
+
+c)  Explanation of tests:
+    The first 3 tests involve relatively few keys, so they mostly test the 
+    locality of the values associated with each key. This is obvious from the
+    fact that in adding or probing pairs, one must go through all the values
+    associated with the key, so in the first 3 tests, since the linked list
+    connected to each key will be very long, we are exercising the locality of
+    the way values are stored by the program. 
+    The second 3 tests exercise the locality of how keys are stored in the
+    program, and the data structure used to store the keys. Here, there are
+    a great deal more keys than values associated with each key, so most of the
+    time complexity comes from searching for keys in the second 3 tests. 
+    Thus, the first 3 tests exercise the values lists, while the second 3
+    exercise the keys, as well as the tree depth and stuff.
+    
+    In some sense, the first 3 tests also are also looking at temporal locality,
+    since going through a linked list involves visiting the same addresses in
+    memory each time, while the second 3 tests involve searching in a tree
+    structure, which involves visitiing different nodes each time.
+
+
+
+e)  Explanation of your optimizations:
+    There are two optimizations, each addressing one of the two parts
+    discussed above (although both optimizations help with all the tests).
+    The first optimization addresses the wide dispersal of values, which
+    is what causes the time waste in the first 3 tests.
+    The optimization is using an array instead of a linked list for
+    the values for each key. This helps with caching since arrays are contiguous
+    in memory, so in going through the values of a key, one loads in all
+    the adjacent values into a cache, (essentially a stride 1 reference pattern)
+    . In addition, the array is always resized to be an integer multiple of
+    the cache line size, so the array always fits in a number of cache
+    lines, and does not take more cache lines than required.
+
+    The second optimization (the dope one) helps with how the keys are stored
+    and navigated in memory. The issue is that in the original implementation,
+    each key is a separate node and located at a different memory address,
+    so searching or traversing the keys involves visiting widespread 
+    addresses all around the memory. A simple fix would have been to just
+    use a slab allocator kind of set up, where all the keys are allocated
+    adjacent to each other, even if they are not an array in the strictest
+    sense (pointers to other nodes are still used to traverse/search). This
+    is sort of similar to the values fix.
+    
+    Another idea might be to actually just use an array (or more properly,
+    the array implementation of a tree); in this, for a key located at
+    index i in the array, its left child is at index 2i + 1, and right
+    child at index 2i + 2. You can see me try this in 
+    array_implementation_of_tree_except_it_took_too_much_memory_and_I_am_
+    sad_now.c, but the problem with this approach is for large trees,
+    the keys at lower levels of the tree are separated by a great deal
+    of space, just due to sheer number of keys, so there isn't much improvement.
+    Also, if the space taken by the original implementation is n, in the worst
+    case, this structure takes 2^n space (consider a tree with only right
+    children, where space would be allocated for every node, even the unused
+    ones, in the tree implementation).
+
+    An idea better than the slab allocator and much better than the array
+    implementation of a tree is to use a B tree instead of a binary search tree.
+    First of all, using a b tree means there are multiple keys per node, so
+    already many of the keys are contiguous, and caching immediately helps.
+    Then, because of how nodes are added to b trees, you are guaranteed to have
+    a balanced tree, which limits how deep you need to search in a tree,
+    which speeds up the process. Finally, with the way keys are added to the
+    tree, each node will have pretty evenly spaced trees, so narrowing down
+    where a key is in a search is an efficent process that involves lots of
+    iterating through contiguous memory, and minimal amounts of accessing new
+    nodes, which is the only time in a key search that non-contiguous memory
+    needs to be accessed. 
+    The more keys per node, the better the cache advantage is, but also the
+    more wasted space you have. I've been setting this number to 50,
+    because this means that all the keys in the first 3 tests can fit into 
+    one node, making caching more effective, but this would also be true for
+    any number over 50. I tried setting it to 256, and got highly similar
+    results, but there's probably more wasted space. Either way, the b tree
+    is a pretty op way to solve this problem, even if it was very painful to
+    debug.
+
+
+f)  Output of ommperf (NOTE: Scale was set to 5 for this as well):
+**NOTE: look at that > 1000x decrease for last two tests, b Trees dope af.
+This program measures multimap read performance by doing the following, for
+various kinds of usage patterns:
+
+ * First, a large number of randomly generated (key, value) pairs are inserted
+   into an empty multimap.
+
+ * Next, more (key, value) pairs are randomly generated, and the multimap is
+   probed to see if each pair is in the map.  The amount of wall-clock time
+   taken for this step is measured and used to estimate the time-per-probe
+   of the map.
+
+ * Finally, the program prints out how many of the generated (key, value) pairs
+   were in the map.  This number should not change regardless of optimizations
+   to the data structure, because the same random seed is always used at the
+   start of the program.
+
+Testing multimap performance:  300000 pairs, 500000 probes, random keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498864 out of 500000 test-pairs were in the map (99.8%)
+Total wall-clock time:  0.19 seconds		μs per probe:  0.380 μs
+
+Testing multimap performance:  300000 pairs, 500000 probes, incrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498690 out of 500000 test-pairs were in the map (99.7%)
+Total wall-clock time:  0.18 seconds		μs per probe:  0.368 μs
+
+Testing multimap performance:  300000 pairs, 500000 probes, decrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+498753 out of 500000 test-pairs were in the map (99.8%)
+Total wall-clock time:  0.22 seconds		μs per probe:  0.434 μs
+
+Testing multimap performance:  15000000 pairs, 500000 probes, random keys.
+Adding 15000000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 500000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+475505 out of 500000 test-pairs were in the map (95.1%)
+Total wall-clock time:  0.15 seconds		μs per probe:  0.293 μs
+
+Testing multimap performance:  100000 pairs, 25000 probes, incrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 25000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+502 out of 25000 test-pairs were in the map (2.0%)
+Total wall-clock time:  0.00 seconds		μs per probe:  0.151 μs
+
+Testing multimap performance:  100000 pairs, 25000 probes, decrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 25000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+545 out of 25000 test-pairs were in the map (2.2%)
+Total wall-clock time:  0.00 seconds		μs per probe:  0.168 μs
+
