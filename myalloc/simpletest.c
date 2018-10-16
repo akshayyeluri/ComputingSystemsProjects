@@ -53,19 +53,19 @@ int main(int argc, char *argv[]) {
 #endif
 
     unsigned char *a = allocate(100, 'A');
-    myrealloc(a, 40000);
+    /*myrealloc(a, 40000);*/
 
     unsigned char *b = allocate(200, 'B');
     unsigned char *c = allocate(300, 'C');
     myfree(a);
-    myrealloc(b, 40000);
+    /*myrealloc(b, 40000);*/
 
     allocate(100, 'A');
-    myrealloc(b, 40000);
+    /* myrealloc(b, 40000); */
 
-    myfree(a);
+    myfree(a); 
     myfree(c);
-    myrealloc(b, 40000);
+    /* myrealloc(b, 40000); */
 
     b = myrealloc(b, 400);
 

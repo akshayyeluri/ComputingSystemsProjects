@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -g -Wall -Werror 
 ASFLAGS = -g
 
-all: testmyalloc
+all: testmyalloc simpletest
 
 clean:
-	rm -f *.o *~ testunacceptable testmyalloc simpletest
+	rm -f *.o *~  testmyalloc simpletest
 
 sequence.o:	sequence.h sequence.c
 myalloc.o:	myalloc.c myalloc.h
